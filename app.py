@@ -146,7 +146,6 @@ def birth_chart():
 
     chart = get_birth_chart(year, month, day, hour, minute, city, tz_offset)
     aspects = calculate_aspects(chart)
-
     return jsonify({
         "birth_chart": chart,
         "aspects": aspects
