@@ -133,6 +133,25 @@ def chart_image():
 
     image = draw_birth_chart(chart, aspects)
     return send_file(image, mimetype="image/png")
+    
+    @app.route("/birth_chart", methods=["GET"])
+def birth_chart():
+    year = int(request.args.get("year"))
+    month = int(request.args.get("month"))
+    day = int(request.args.get("day"))
+    hour = int(request.args.get("hour"))
+    minute = int(request.args.get("minute"))
+    city = request.args.get("city")
+    tz_offset = float(request.args.get("tz_offset"))
+
+    chart = get_birth_chart(year, month, day, hour, minute, city, tz_offset)
+    aspects = calculate_aspects(chart)
+
+    return jsonify({
+        "birth_chart": chart,
+        "aspects": aspects
+    })
+
 
 # Route to Display Web Page
 @app.route("/")
