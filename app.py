@@ -134,7 +134,7 @@ def chart_image():
     image = draw_birth_chart(chart, aspects)
     return send_file(image, mimetype="image/png")
     
-    @app.route("/birth_chart", methods=["GET"])
+@app.route("/birth_chart", methods=["GET"])
 def birth_chart():
     year = int(request.args.get("year"))
     month = int(request.args.get("month"))
@@ -151,7 +151,6 @@ def birth_chart():
         "birth_chart": chart,
         "aspects": aspects
     })
-
 
 # Route to Display Web Page
 @app.route("/")
