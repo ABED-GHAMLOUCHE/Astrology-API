@@ -10,13 +10,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from models import db, User, bcrypt
+from config import Config  # Import config
 
 app = Flask(__name__)
+app.config.from_object(Config)
 
-# 🛠️ Configure Database
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://astrology_user_data_user:uYfa51BtqNNH7GqCPHjcNvz7p4ddj1VR@dpg-cujjbhjv2p9s73821o40-a/astrology_user_data"
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["JWT_SECRET_KEY"] = "supersecretkey"  # Change this to a secure key
+db = SQLAlchemy(app)
 
 db.init_app(app)
 bcrypt.init_app(app)
