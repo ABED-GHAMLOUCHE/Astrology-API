@@ -30,7 +30,7 @@ const App = () => {
 
   // Fetch Timezone Offset from Google Time Zone API
   const getTimeZoneOffset = async (latitude, longitude) => {
-    const API_KEY = "YOUR_GOOGLE_API_KEY"; // Replace with your actual key
+    const API_KEY = "AIzaSyBudSMdB3eiI1x0spYtQHcXCv7uOikaBAw"; // Replace with your actual key
     const timestamp = Math.floor(Date.now() / 1000); // Current time in seconds
     const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${API_KEY}`;
 
