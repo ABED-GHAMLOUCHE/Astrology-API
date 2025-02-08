@@ -81,7 +81,8 @@ def login():
         if not user or not user.check_password(password):
             return jsonify({"error": "Invalid credentials"}), 401
 
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id))  # Convert to string
+
         return jsonify({"message": "Login successful", "access_token": access_token}), 200
 
     except Exception as e:
@@ -192,4 +193,4 @@ def home():
 
 # ✅ Run Flask App
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=True)
