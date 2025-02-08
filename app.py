@@ -5,8 +5,10 @@ import swisseph as swe
 import os
 from io import BytesIO
 from geopy.geocoders import Nominatim
+from flask_cors import CORS  # Import CORS
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # Set Ephemeris Path
 EPHE_PATH = "C:/swisseph-master/sweph/"

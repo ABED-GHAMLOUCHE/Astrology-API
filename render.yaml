@@ -1,0 +1,11 @@
+services:
+  - name: astrology-api
+    type: web
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+
+  - name: astrology-frontend
+    type: static
+    buildCommand: cd astrology-frontend && npm install && npm run build
+    staticPublishPath: astrology-frontend/build
