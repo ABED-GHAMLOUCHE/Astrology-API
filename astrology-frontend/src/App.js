@@ -5,7 +5,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import TimePicker from "react-time-picker";
 import "react-time-picker/dist/TimePicker.css";
 
-// Google Places API
+// Google Places API Loader
 const loadGoogleMapsScript = (callback) => {
   if (window.google) {
     callback();
@@ -23,10 +23,31 @@ const App = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState("12:00");
   const [city, setCity] = useState("");
-  const [tzOffset, setTzOffset] = useState("");
+  const [tzOffset, setTzOffset] = useState(null);
   const [error, setError] = useState("");
   const [birthChart, setBirthChart] = useState(null);
   const API_URL = "https://astrology-api-au16.onrender.com";
+
+  // Fetch Timezone Offset from Google Time Zone API
+  const getTimeZoneOffset = async (latitude, longitude) => {
+    const API_KEY = "YOUR_GOOGLE_API_KEY"; // Replace with your actual key
+    const timestamp = Math.floor(Date.now() / 1000); // Current time in seconds
+    const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${API_KEY}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.status === "OK") {
+        const offset = data.rawOffset / 3600 + data.dstOffset / 3600; // Convert seconds to hours
+        setTzOffset(offset);
+      } else {
+        console.error("❌ Error fetching timezone:", data.status);
+      }
+    } catch (error) {
+      console.error("❌ Timezone API Error:", error);
+    }
+  };
 
   // Initialize Google Places Autocomplete
   const initAutocomplete = () => {
@@ -39,18 +60,29 @@ const App = () => {
 
     autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
-      setCity(place.formatted_address);
+      if (place.geometry) {
+        const latitude = place.geometry.location.lat();
+        const longitude = place.geometry.location.lng();
+        setCity(place.formatted_address);
+        getTimeZoneOffset(latitude, longitude); // Automatically get timezone
+      }
     });
   };
 
-  // Load Google Places API when component mounts
+  // Load Google Maps API when component mounts
   React.useEffect(() => {
     loadGoogleMapsScript(initAutocomplete);
   }, []);
 
+  // Fetch Birth Chart from API
   const fetchBirthChart = async () => {
     if (!city.trim()) {
       setError("Please select a valid city.");
+      return;
+    }
+
+    if (tzOffset === null) {
+      setError("Fetching timezone... Please wait.");
       return;
     }
 
@@ -66,7 +98,6 @@ const App = () => {
           hour: time[0],
           minute: time[1],
           city,
-          tz_offset: tzOffset,
         },
       });
 
@@ -95,37 +126,19 @@ const App = () => {
 
       <div>
         <label>Select Time of Birth:</label>
-        <TimePicker
-          value={selectedTime}
-          onChange={setSelectedTime}
-          disableClock={true}
-        />
+        <TimePicker value={selectedTime} onChange={setSelectedTime} disableClock={true} />
       </div>
 
       <div>
         <label>Select City:</label>
-        <input
-          id="city-input"
-          type="text"
-          placeholder="Enter your birth city"
-        />
+        <input id="city-input" type="text" placeholder="Enter your birth city" />
       </div>
 
-      <div>
-        <label>Time Zone Offset:</label>
-        <select value={tzOffset} onChange={(e) => setTzOffset(e.target.value)}>
-          {[...Array(27)].map((_, i) => {
-            const offset = -12 + i;
-            return (
-              <option key={offset} value={offset}>
-                {offset >= 0 ? `+${offset}` : offset}
-              </option>
-            );
-          })}
-        </select>
-      </div>
+      {tzOffset !== null && <p>🌍 Time Zone Offset: {tzOffset >= 0 ? `+${tzOffset}` : tzOffset} hours</p>}
 
-      <button onClick={fetchBirthChart}>Get Birth Chart</button>
+      <button onClick={fetchBirthChart} disabled={tzOffset === null}>
+        Get Birth Chart
+      </button>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
