@@ -15,6 +15,12 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your_jwt_secret_key")
     GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+    GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+    GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+
+    # Ensure OAuth variables exist to avoid crashes
+    if not GOOGLE_OAUTH_CLIENT_ID or not GOOGLE_OAUTH_CLIENT_SECRET:
+        raise ValueError("🚨 Missing Google OAuth credentials in environment variables!")
 
     # ✅ Extra Security - Require SSL (if running on production)
     if os.getenv("FLASK_ENV") == "production":
