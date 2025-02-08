@@ -6,44 +6,46 @@
     <title>Profile</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; }
-        button { background: red; color: white; padding: 10px; width: 100px; margin-top: 20px; }
+        .container { max-width: 400px; margin: auto; }
+        button { background: red; color: white; padding: 10px; width: 100%; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
-    <h2>Profile</h2>
-    <p id="username"></p>
-    <p id="email"></p>
-    <button onclick="logout()">Logout</button>
+    <h2>Welcome to Your Profile</h2>
+    <div class="container">
+        <p><strong>Username:</strong> <span id="username"></span></p>
+        <p><strong>Email:</strong> <span id="email"></span></p>
+        <button onclick="logout()">Logout</button>
+    </div>
 
     <script>
-        async function loadProfile() {
+        async function fetchProfile() {
             const token = localStorage.getItem("token");
             if (!token) {
-                window.location.href = "login.html";
+                window.location.href = "/login_page";
                 return;
             }
 
             const response = await fetch("/profile", {
-                method: "GET",
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
+            const data = await response.json();
             if (response.ok) {
-                const user = await response.json();
-                document.getElementById("username").textContent = `Username: ${user.username}`;
-                document.getElementById("email").textContent = `Email: ${user.email}`;
+                document.getElementById("username").textContent = data.username;
+                document.getElementById("email").textContent = data.email;
             } else {
                 localStorage.removeItem("token");
-                window.location.href = "login.html";
+                window.location.href = "/login_page";
             }
         }
 
         function logout() {
             localStorage.removeItem("token");
-            window.location.href = "login.html";
+            window.location.href = "/";
         }
 
-        loadProfile();
+        fetchProfile();
     </script>
 </body>
 </html>
