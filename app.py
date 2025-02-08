@@ -6,8 +6,78 @@ import os
 from io import BytesIO
 from geopy.geocoders import Nominatim
 from flask_cors import CORS  # Import CORS
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from models import db, User, bcrypt
 
 app = Flask(__name__)
+
+# 🛠️ Configure Database
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://astrology_user_data_user:uYfa51BtqNNH7GqCPHjcNvz7p4ddj1VR@dpg-cujjbhjv2p9s73821o40-a/astrology_user_data"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["JWT_SECRET_KEY"] = "supersecretkey"  # Change this to a secure key
+
+db.init_app(app)
+bcrypt.init_app(app)
+jwt = JWTManager(app)
+
+# 🛠️ Create Database Tables
+with app.app_context():
+    db.create_all()
+
+# ✅ User Registration Route
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.get_json()
+    username = data.get("username")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not username or not email or not password:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"error": "Email already registered"}), 409
+
+    new_user = User(username=username, email=email, password=password)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({"message": "User registered successfully"}), 201
+
+# ✅ User Login Route
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    email = data.get("email")
+    password = data.get("password")
+
+    user = User.query.filter_by(email=email).first()
+    if not user or not user.check_password(password):
+        return jsonify({"error": "Invalid credentials"}), 401
+
+    access_token = create_access_token(identity=user.id)
+    return jsonify({"message": "Login successful", "access_token": access_token}), 200
+
+# ✅ Protected Route (Only for Authenticated Users)
+@app.route("/profile", methods=["GET"])
+@jwt_required()
+def profile():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({
+        "username": user.username,
+        "email": user.email,
+        "message": "Welcome to your profile"
+    }), 200
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
 # ✅ Enable CORS for the entire app
 CORS(app, resources={r"/birth_chart": {"origins": "*"}})
