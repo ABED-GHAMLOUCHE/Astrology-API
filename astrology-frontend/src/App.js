@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -12,7 +12,7 @@ const loadGoogleMapsScript = (callback) => {
     return;
   }
   const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBudSMdB3eiI1x0spYtQHcXCv7uOikaBAw&libraries=places`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_API_KEY&libraries=places`;
   script.async = true;
   script.defer = true;
   script.onload = callback;
@@ -28,18 +28,18 @@ const App = () => {
   const [birthChart, setBirthChart] = useState(null);
   const API_URL = "https://astrology-api-au16.onrender.com";
 
-  // Fetch Timezone Offset from Google Time Zone API
+  // ✅ Fetch Timezone Offset from Google Time Zone API
   const getTimeZoneOffset = async (latitude, longitude) => {
-    const API_KEY = "AIzaSyBudSMdB3eiI1x0spYtQHcXCv7uOikaBAw"; // Replace with your actual key
-    const timestamp = Math.floor(Date.now() / 1000); // Current time in seconds
+    const API_KEY = "AIzaSyBudSMdB3eiI1x0spYtQHcXCv7uOikaBAw"; // 🔹 Replace with your unrestricted API Key
+    const timestamp = Math.floor(Date.now() / 1000);
     const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${API_KEY}`;
 
     try {
       const response = await axios.get(url);
       console.log("🛰️ Timezone API Response:", response.data);
-  
+
       if (response.data.status === "OK") {
-        const offsetHours = response.data.rawOffset / 3600; // Convert from seconds to hours
+        const offsetHours = response.data.rawOffset / 3600; // Convert seconds to hours
         return offsetHours;
       } else {
         console.error("❌ Error fetching timezone:", response.data.status, response.data.errorMessage);
@@ -51,41 +51,42 @@ const App = () => {
     }
   };
 
-  // Initialize Google Places Autocomplete
+  // ✅ Initialize Google Places Autocomplete & Fetch Timezone
   const initAutocomplete = () => {
     const input = document.getElementById("city-input");
     if (!input) return;
-  
+
     const autocomplete = new window.google.maps.places.Autocomplete(input, {
       types: ["(cities)"],
     });
-  
+
     autocomplete.addListener("place_changed", async () => {
       const place = autocomplete.getPlace();
       if (!place.geometry) return;
-  
+
       const { lat, lng } = place.geometry.location;
       const latitude = lat();
       const longitude = lng();
-  
+
       setCity(place.formatted_address);
-  
-      // 🔹 Get and Set Timezone Automatically
-      const offset = await getTimezoneOffset(latitude, longitude);
+      
+      // ✅ Corrected Function Call
+      const offset = await getTimeZoneOffset(latitude, longitude);
       if (offset !== null) {
         setTzOffset(offset);
         console.log(`⏳ Auto-Detected Timezone Offset: ${offset} hours`);
+      } else {
+        setError("❌ Could not determine timezone.");
       }
     });
   };
-  
 
-  // Load Google Maps API when component mounts
-  React.useEffect(() => {
+  // ✅ Load Google Maps API when component mounts
+  useEffect(() => {
     loadGoogleMapsScript(initAutocomplete);
   }, []);
 
-  // Fetch Birth Chart from API
+  // ✅ Fetch Birth Chart from API
   const fetchBirthChart = async () => {
     if (!city.trim()) {
       setError("Please select a valid city.");
@@ -109,6 +110,7 @@ const App = () => {
           hour: time[0],
           minute: time[1],
           city,
+          tz_offset: tzOffset,
         },
       });
 
