@@ -11,6 +11,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from models import db, User, bcrypt
 from config import Config
 import traceback  # Logs full error details
+from flask_migrate import Migrate
 
 # ✅ Initialize Flask App
 app = Flask(__name__)
@@ -22,6 +23,7 @@ if not app.config.get("JWT_SECRET_KEY"):
 
 # ✅ Initialize Extensions
 db.init_app(app)
+migrate = Migrate(app, db)  # ✅ Add This Line
 bcrypt.init_app(app)
 jwt = JWTManager(app)
 
@@ -63,7 +65,7 @@ def register():
     try:
         if not request.is_json:
             return jsonify({"error": "Invalid request. Content-Type must be application/json"}), 415
-            
+
         data = request.get_json()
         username = data.get("username")
         email = data.get("email")
@@ -76,7 +78,8 @@ def register():
             return jsonify({"error": "Email already registered"}), 409
 
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-        new_user = User(username=username, email=email, password=hashed_password)
+        new_user = User(username=username, email=email)
+        new_user.set_password(password)  # FIX: Use set_password instead of direct assignment
         db.session.add(new_user)
         db.session.commit()
 
@@ -97,7 +100,7 @@ def login():
 
         user = User.query.filter_by(email=email).first()
         
-        if not user or not bcrypt.check_password_hash(user.password, password):
+        if not user or not user.check_password(password):  # FIX: Use check_password()
             return jsonify({"error": "Invalid credentials"}), 401
 
         access_token = create_access_token(identity=str(user.id))  # Convert to string
