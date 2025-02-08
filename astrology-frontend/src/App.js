@@ -34,20 +34,21 @@ const App = () => {
     const timestamp = Math.floor(Date.now() / 1000); // Current time in seconds
     const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${API_KEY}`;
 
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
+  try {
+    const response = await axios.get(url);
+    console.log("🛰️ Timezone API Response:", response.data); // Debugging
 
-      if (data.status === "OK") {
-        const offset = data.rawOffset / 3600 + data.dstOffset / 3600; // Convert seconds to hours
-        setTzOffset(offset);
-      } else {
-        console.error("❌ Error fetching timezone:", data.status);
-      }
-    } catch (error) {
-      console.error("❌ Timezone API Error:", error);
+    if (response.data.status === "OK") {
+      return response.data.rawOffset / 3600; // Convert seconds to hours
+    } else {
+      console.error("❌ Error fetching timezone:", response.data.status, response.data.errorMessage);
+      return null;
     }
-  };
+  } catch (error) {
+    console.error("❌ Timezone API Request Failed:", error);
+    return null;
+  }
+};
 
   // Initialize Google Places Autocomplete
   const initAutocomplete = () => {
