@@ -10,6 +10,7 @@ from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from models import db, User, bcrypt
 from config import Config  # Import config
+import traceback  #  Add this at the top
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -54,6 +55,11 @@ def login():
 
     access_token = create_access_token(identity=user.id)
     return jsonify({"message": "Login successful", "access_token": access_token}), 200
+
+     except Exception as e:
+        print("🔥 ERROR:", e)
+        traceback.print_exc()  # Logs full error details
+        return jsonify({"error": "Something went wrong!"}), 500
 
 # ✅ Protected Route (Only for Authenticated Users)
 @app.route("/profile", methods=["GET"])
