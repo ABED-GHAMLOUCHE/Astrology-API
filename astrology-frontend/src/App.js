@@ -14,7 +14,7 @@ function App() {
   const [tzOffset, setTzOffset] = useState("-5");
 
   const fetchBirthChart = async () => {
-    const url = `https://astrology-api.onrender.com/birth_chart?year=${year}&month=${month}&day=${day}&hour=${hour}&minute=${minute}&city=${encodeURIComponent(city)}&tz_offset=${tzOffset}`;
+    const url = `https://astrology-api-au16.onrender.com/birth_chart?year=${year}&month=${month}&day=${day}&hour=${hour}&minute=${minute}&city=${encodeURIComponent(city)}&tz_offset=${tzOffset}`;
 
     console.log("🔍 API Request URL:", url); // Debugging
 
