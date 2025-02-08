@@ -25,8 +25,22 @@ db.init_app(app)
 bcrypt.init_app(app)
 jwt = JWTManager(app)
 
+@app.route("/")
+def home():
+    return render_template("register.html")
+
+@app.route("/login_page")
+def login_page():
+    return render_template("login.html")
+
+@app.route("/profile_page")
+@jwt_required()
+def profile_page():
+    return render_template("profile.html")
+
 # ✅ Enable CORS
-CORS(app, resources={r"/*": {"origins": "*"}})
+CORS(app, resources={r"/register": {"origins": "*"}, r"/login": {"origins": "*"}, r"/profile": {"origins": "*"}})
+
 
 @app.after_request
 def add_cors_headers(response):
@@ -47,6 +61,9 @@ with app.app_context():
 @app.route("/register", methods=["POST"])
 def register():
     try:
+        if not request.is_json:
+            return jsonify({"error": "Invalid request. Content-Type must be application/json"}), 415
+            
         data = request.get_json()
         username = data.get("username")
         email = data.get("email")
@@ -58,7 +75,8 @@ def register():
         if User.query.filter_by(email=email).first():
             return jsonify({"error": "Email already registered"}), 409
 
-        new_user = User(username=username, email=email, password=password)
+        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
+        new_user = User(username=username, email=email, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
 
@@ -78,7 +96,8 @@ def login():
         password = data.get("password")
 
         user = User.query.filter_by(email=email).first()
-        if not user or not user.check_password(password):
+        
+        if not user or not bcrypt.check_password_hash(user.password, password):
             return jsonify({"error": "Invalid credentials"}), 401
 
         access_token = create_access_token(identity=str(user.id))  # Convert to string
@@ -95,7 +114,7 @@ def login():
 @jwt_required()
 def profile():
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())  # Convert from string to integer
         user = User.query.get(user_id)
 
         if not user:
@@ -143,7 +162,7 @@ ORB_ALLOWANCE = {"Conjunction": 8, "Opposition": 6, "Trine": 6, "Square": 6, "Se
 
 # ✅ Get Coordinates of a City
 def get_coordinates(city):
-    geolocator = Nominatim(user_agent="astro_chart")
+    geolocator = Nominatim(user_agent="astrology_api")
     location = geolocator.geocode(city)
     return (location.latitude, location.longitude) if location else (None, None)
 
@@ -161,11 +180,13 @@ def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
     for planet, planet_code in PLANETS.items():
         planet_data = swe.calc_ut(jd, planet_code)
         planet_longitude = planet_data[0][0]
+        house_position = next((i+1 for i, cusp in enumerate(houses) if cusp > planet_longitude), 12)
         chart[planet] = {
             "position": planet_longitude,
             "sign": ZODIAC_SIGNS[int(planet_longitude // 30)],
-            "house": int(planet_longitude // 30) + 1
+            "house": house_position
         }
+
 
     chart["Ascendant"] = {"position": ascendant_degree, "sign": ZODIAC_SIGNS[int(ascendant_degree // 30)], "house": 1}
     chart["Midheaven"] = {"position": asc_mc[1], "sign": ZODIAC_SIGNS[int(asc_mc[1] // 30)], "house": 10}
@@ -186,11 +207,6 @@ def birth_chart():
     chart = get_birth_chart(year, month, day, hour, minute, city, tz_offset)
     return jsonify(chart)
 
-# ✅ Homepage Route
-@app.route("/")
-def home():
-    return render_template("index.html")
-
 # ✅ Run Flask App
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=10000, debug=True)
