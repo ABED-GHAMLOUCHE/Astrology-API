@@ -12,20 +12,36 @@ from models import db, User, bcrypt
 from config import Config
 import traceback  # Logs full error details
 
+# ✅ Initialize Flask App
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Ensure SECRET_KEY for JWT is set
+# ✅ Ensure SECRET_KEY for JWT is Set
 if not app.config.get("JWT_SECRET_KEY"):
-    app.config["JWT_SECRET_KEY"] = "super-secret-key"  # Change this to a secure key
+    app.config["JWT_SECRET_KEY"] = "super-secret-key"  # Change this in production!
 
+# ✅ Initialize Extensions
 db.init_app(app)
 bcrypt.init_app(app)
 jwt = JWTManager(app)
 
-# 🛠️ Create Database Tables
+# ✅ Enable CORS
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
+
+# ✅ Create Database Tables
 with app.app_context():
     db.create_all()
+
+# ===========================
+# 🚀 USER AUTHENTICATION
+# ===========================
 
 # ✅ User Registration Route
 @app.route("/register", methods=["POST"])
@@ -73,7 +89,7 @@ def login():
         traceback.print_exc()
         return jsonify({"error": "Something went wrong!"}), 500
 
-# ✅ Protected Route (Only for Authenticated Users)
+# ✅ Protected Profile Route
 @app.route("/profile", methods=["GET"])
 @jwt_required()
 def profile():
@@ -95,35 +111,15 @@ def profile():
         traceback.print_exc()
         return jsonify({"error": "Something went wrong!"}), 500
 
-# ✅ Enable CORS for the entire app
-CORS(app, resources={r"/birth_chart": {"origins": "*"}})
+# ===========================
+# 🔮 ASTROLOGY FUNCTIONS
+# ===========================
 
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    return response
-
-# Run the Flask application
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000, debug=True)
-
-# ✅ Enable CORS for the entire app
-CORS(app, resources={r"/birth_chart": {"origins": "*"}})
-
-@app.after_request
-def add_cors_headers(response):
-    response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-    return response
-
-# Set Ephemeris Path
+# ✅ Set Ephemeris Path
 EPHE_PATH = "C:/swisseph-master/sweph/"
 swe.set_ephe_path(EPHE_PATH)
 
-# Planets and Additional Points
+# ✅ Define Planets
 PLANETS = {
     "☉ Sun": swe.SUN, "☽ Moon": swe.MOON, "☿ Mercury": swe.MERCURY,
     "♀ Venus": swe.VENUS, "♂ Mars": swe.MARS, "♃ Jupiter": swe.JUPITER,
@@ -131,26 +127,26 @@ PLANETS = {
     "♇ Pluto": swe.PLUTO, "☊ North Node": swe.MEAN_NODE
 }
 
-# Zodiac Signs
+# ✅ Zodiac Signs
 ZODIAC_SIGNS = [
     "♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo", "♍ Virgo",
     "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn", "♒ Aquarius", "♓ Pisces"
 ]
 
-# Major Aspects & Orbs
+# ✅ Major Aspects
 ASPECTS = {
     "Conjunction": 0, "Opposition": 180, "Trine": 120,
     "Square": 90, "Sextile": 60
 }
 ORB_ALLOWANCE = {"Conjunction": 8, "Opposition": 6, "Trine": 6, "Square": 6, "Sextile": 4}
 
-# Function to Get Coordinates of City
+# ✅ Get Coordinates of a City
 def get_coordinates(city):
     geolocator = Nominatim(user_agent="astro_chart")
     location = geolocator.geocode(city)
     return (location.latitude, location.longitude) if location else (None, None)
 
-# Function to Get Birth Chart
+# ✅ Generate Birth Chart
 def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
     lat, lon = get_coordinates(city)
     if lat is None or lon is None:
@@ -175,75 +171,7 @@ def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
 
     return chart
 
-# Function to Calculate Aspects
-def calculate_aspects(chart):
-    aspects = []
-    planet_list = list(chart.keys())
-
-    for i in range(len(planet_list)):
-        for j in range(i + 1, len(planet_list)):
-            planet1, planet2 = planet_list[i], planet_list[j]
-            pos1, pos2 = chart[planet1]["position"], chart[planet2]["position"]
-            for aspect, angle in ASPECTS.items():
-                diff = abs(pos1 - pos2)
-                diff = min(diff, 360 - diff)
-                if abs(diff - angle) <= ORB_ALLOWANCE[aspect]:
-                    aspects.append({"aspect": aspect, "planet1": planet1, "planet2": planet2, "orb": round(abs(diff - angle), 2)})
-    return aspects
-
-# Function to Draw Birth Chart Wheel
-def draw_birth_chart(chart, aspects):
-    fig, ax = plt.subplots(figsize=(8, 8))
-    ax.set_xlim(-1.1, 1.1)
-    ax.set_ylim(-1.1, 1.1)
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_frame_on(False)
-
-    wheel = plt.Circle((0, 0), 1, color="black", fill=False, linewidth=2)
-    ax.add_patch(wheel)
-
-    for i, sign in enumerate(ZODIAC_SIGNS):
-        angle = (i * 30 + 15)
-        radian = np.radians(angle)
-        x, y = np.cos(radian) * 0.85, np.sin(radian) * 0.85
-        ax.text(x, y, sign, fontsize=9, ha="center", va="center", color="black")
-
-    for planet, data in chart.items():
-        radian = np.radians(data["position"])
-        x, y = np.cos(radian) * 0.75, np.sin(radian) * 0.75
-        ax.scatter(x, y, color="black", s=30)
-        ax.text(x, y + 0.05, planet, fontsize=8, ha="center", va="center", color="black")
-
-    # Draw Aspects
-    for aspect in aspects:
-        p1, p2 = aspect["planet1"], aspect["planet2"]
-        x1, y1 = np.cos(np.radians(chart[p1]["position"])) * 0.75, np.sin(np.radians(chart[p1]["position"])) * 0.75
-        x2, y2 = np.cos(np.radians(chart[p2]["position"])) * 0.75, np.sin(np.radians(chart[p2]["position"])) * 0.75
-        ax.plot([x1, x2], [y1, y2], color="red", linestyle="--", linewidth=0.5)
-
-    buf = BytesIO()
-    plt.savefig(buf, format="png")
-    buf.seek(0)
-    plt.close(fig)
-    return buf
-
-@app.route("/chart_image")
-def chart_image():
-    year = int(request.args.get("year"))
-    month = int(request.args.get("month"))
-    day = int(request.args.get("day"))
-    hour = int(request.args.get("hour"))
-    minute = int(request.args.get("minute"))
-    city = request.args.get("city")
-    tz_offset = float(request.args.get("tz_offset"))
-
-    chart = get_birth_chart(year, month, day, hour, minute, city, tz_offset)
-    aspects = calculate_aspects(chart)
-
-    image = draw_birth_chart(chart, aspects)
-    return send_file(image, mimetype="image/png")
-
+# ✅ Astrology API Route
 @app.route("/birth_chart", methods=["GET"])
 def birth_chart():
     year = int(request.args.get("year"))
@@ -255,17 +183,13 @@ def birth_chart():
     tz_offset = float(request.args.get("tz_offset"))
 
     chart = get_birth_chart(year, month, day, hour, minute, city, tz_offset)
-    aspects = calculate_aspects(chart)
+    return jsonify(chart)
 
-    return jsonify({
-        "birth_chart": chart,
-        "aspects": aspects
-    })
-
-# Route to Display Web Page
+# ✅ Homepage Route
 @app.route("/")
 def home():
     return render_template("index.html")
 
+# ✅ Run Flask App
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000, debug=True)
