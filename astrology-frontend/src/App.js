@@ -34,41 +34,51 @@ const App = () => {
     const timestamp = Math.floor(Date.now() / 1000); // Current time in seconds
     const url = `https://maps.googleapis.com/maps/api/timezone/json?location=${latitude},${longitude}&timestamp=${timestamp}&key=${API_KEY}`;
 
-  try {
-    const response = await axios.get(url);
-    console.log("🛰️ Timezone API Response:", response.data); // Debugging
-
-    if (response.data.status === "OK") {
-      return response.data.rawOffset / 3600; // Convert seconds to hours
-    } else {
-      console.error("❌ Error fetching timezone:", response.data.status, response.data.errorMessage);
+    try {
+      const response = await axios.get(url);
+      console.log("🛰️ Timezone API Response:", response.data);
+  
+      if (response.data.status === "OK") {
+        const offsetHours = response.data.rawOffset / 3600; // Convert from seconds to hours
+        return offsetHours;
+      } else {
+        console.error("❌ Error fetching timezone:", response.data.status, response.data.errorMessage);
+        return null;
+      }
+    } catch (error) {
+      console.error("❌ Timezone API Request Failed:", error);
       return null;
     }
-  } catch (error) {
-    console.error("❌ Timezone API Request Failed:", error);
-    return null;
-  }
-};
+  };
 
   // Initialize Google Places Autocomplete
   const initAutocomplete = () => {
     const input = document.getElementById("city-input");
     if (!input) return;
-
+  
     const autocomplete = new window.google.maps.places.Autocomplete(input, {
       types: ["(cities)"],
     });
-
-    autocomplete.addListener("place_changed", () => {
+  
+    autocomplete.addListener("place_changed", async () => {
       const place = autocomplete.getPlace();
-      if (place.geometry) {
-        const latitude = place.geometry.location.lat();
-        const longitude = place.geometry.location.lng();
-        setCity(place.formatted_address);
-        getTimeZoneOffset(latitude, longitude); // Automatically get timezone
+      if (!place.geometry) return;
+  
+      const { lat, lng } = place.geometry.location;
+      const latitude = lat();
+      const longitude = lng();
+  
+      setCity(place.formatted_address);
+  
+      // 🔹 Get and Set Timezone Automatically
+      const offset = await getTimezoneOffset(latitude, longitude);
+      if (offset !== null) {
+        setTzOffset(offset);
+        console.log(`⏳ Auto-Detected Timezone Offset: ${offset} hours`);
       }
     });
   };
+  
 
   // Load Google Maps API when component mounts
   React.useEffect(() => {
