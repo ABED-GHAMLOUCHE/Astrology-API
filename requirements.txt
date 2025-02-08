@@ -42,3 +42,4 @@ flask_cors
 werkzeug
 bcrypt
 flask-bcrypt
+psycopg2-binary
