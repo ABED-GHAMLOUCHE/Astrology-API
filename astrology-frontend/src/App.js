@@ -12,7 +12,7 @@ const loadGoogleMapsScript = (callback) => {
     return;
   }
   const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBudSMdB3eiI1x0spYtQHcXCv7uOikaBAwY&libraries=places`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBudSMdB3eiI1x0spYtQHcXCv7uOikaBAw&libraries=places`;
   script.async = true;
   script.defer = true;
   script.onload = callback;
