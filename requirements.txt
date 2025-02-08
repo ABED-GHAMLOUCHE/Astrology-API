@@ -40,7 +40,10 @@ flask_sqlalchemy
 flask_jwt_extended
 flask_cors
 flask-migrate
+gunicorn
 werkzeug
 bcrypt
 flask-bcrypt
 psycopg2-binary
+requests-oauthlib
+oauthlib

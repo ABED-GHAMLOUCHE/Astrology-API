@@ -1,48 +1,27 @@
-from flask import Flask, request, jsonify, render_template, send_file
-import matplotlib.pyplot as plt
-import numpy as np
-import swisseph as swe
-import os
-from io import BytesIO
-from geopy.geocoders import Nominatim
-from flask_cors import CORS
-from flask_bcrypt import Bcrypt
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from models import db, User, bcrypt
-from config import Config
-import traceback  # Logs full error details
+from flask import Flask, redirect, url_for, jsonify, render_template, request
+from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
+from flask_cors import CORS
+from flask_dance.contrib.google import make_google_blueprint, google
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+import swisseph as swe
+import traceback
+from io import BytesIO
+import numpy as np
+import matplotlib.pyplot as plt
+from geopy.geocoders import Nominatim
+from config import Config
 
 # ✅ Initialize Flask App
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# ✅ Ensure SECRET_KEY for JWT is Set
-if not app.config.get("JWT_SECRET_KEY"):
-    app.config["JWT_SECRET_KEY"] = "super-secret-key"  # Change this in production!
-
-# ✅ Initialize Extensions
-db.init_app(app)
-migrate = Migrate(app, db)  # ✅ Add This Line
-bcrypt.init_app(app)
-jwt = JWTManager(app)
-
-@app.route("/")
-def home():
-    return render_template("register.html")
-
-@app.route("/login_page")
-def login_page():
-    return render_template("login.html")
-
-@app.route("/profile_page")
-@jwt_required()
-def profile_page():
-    return render_template("profile.html")
+# ✅ Database Setup
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 
 # ✅ Enable CORS
-CORS(app, resources={r"/register": {"origins": "*"}, r"/login": {"origins": "*"}, r"/profile": {"origins": "*"}})
-
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 @app.after_request
 def add_cors_headers(response):
@@ -51,68 +30,61 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     return response
 
-# ✅ Create Database Tables
-with app.app_context():
-    db.create_all()
+# ✅ Define User Model
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    google_id = db.Column(db.String(50), unique=True, nullable=True)  # For Google Login
+    username = db.Column(db.String(100), nullable=True)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+
+# ✅ Google OAuth Setup
+google_bp = make_google_blueprint(
+    client_id=app.config["GOOGLE_OAUTH_CLIENT_ID"],
+    client_secret=app.config["GOOGLE_OAUTH_CLIENT_SECRET"],
+    scope=["profile", "email"],
+    redirect_to="google_callback"
+)
+app.register_blueprint(google_bp, url_prefix="/login")
+
+# ✅ JWT Setup
+jwt = JWTManager(app)
 
 # ===========================
-# 🚀 USER AUTHENTICATION
+# 🚀 AUTHENTICATION SYSTEM
 # ===========================
 
-# ✅ User Registration Route
-@app.route("/register", methods=["POST"])
-def register():
-    try:
-        if not request.is_json:
-            return jsonify({"error": "Invalid request. Content-Type must be application/json"}), 415
+# ✅ Google OAuth Callback Route
+@app.route("/google_callback")
+def google_callback():
+    if not google.authorized:
+        return redirect(url_for("google.login"))
 
-        data = request.get_json()
-        username = data.get("username")
-        email = data.get("email")
-        password = data.get("password")
+    # ✅ Get user details from Google API
+    resp = google.get("/oauth2/v1/userinfo")
+    if not resp.ok:
+        return jsonify({"error": "Failed to fetch user info"}), 400
 
-        if not username or not email or not password:
-            return jsonify({"error": "Missing required fields"}), 400
+    user_info = resp.json()
+    google_id = user_info["id"]
+    email = user_info["email"]
+    name = user_info.get("name", "")
 
-        if User.query.filter_by(email=email).first():
-            return jsonify({"error": "Email already registered"}), 409
-
-        hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-        new_user = User(username=username, email=email)
-        new_user.set_password(password)  # FIX: Use set_password instead of direct assignment
-        db.session.add(new_user)
+    # ✅ Check if user exists in DB
+    user = User.query.filter_by(google_id=google_id).first()
+    if not user:
+        user = User(google_id=google_id, email=email, username=name)
+        db.session.add(user)
         db.session.commit()
 
-        return jsonify({"message": "User registered successfully"}), 201
+    access_token = create_access_token(identity=str(user.id))
+    return jsonify({
+        "message": "Login successful!",
+        "username": user.username,
+        "email": user.email,
+        "access_token": access_token
+    }), 200
 
-    except Exception as e:
-        print("🔥 ERROR:", e)
-        traceback.print_exc()
-        return jsonify({"error": "Something went wrong!"}), 500
-
-# ✅ User Login Route
-@app.route("/login", methods=["POST"])
-def login():
-    try:
-        data = request.get_json()
-        email = data.get("email")
-        password = data.get("password")
-
-        user = User.query.filter_by(email=email).first()
-        
-        if not user or not user.check_password(password):  # FIX: Use check_password()
-            return jsonify({"error": "Invalid credentials"}), 401
-
-        access_token = create_access_token(identity=str(user.id))  # Convert to string
-
-        return jsonify({"message": "Login successful", "access_token": access_token}), 200
-
-    except Exception as e:
-        print("🔥 ERROR:", e)
-        traceback.print_exc()
-        return jsonify({"error": "Something went wrong!"}), 500
-
-# ✅ Protected Profile Route
+# ✅ User Profile Route (Protected)
 @app.route("/profile", methods=["GET"])
 @jwt_required()
 def profile():
@@ -190,7 +162,6 @@ def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
             "house": house_position
         }
 
-
     chart["Ascendant"] = {"position": ascendant_degree, "sign": ZODIAC_SIGNS[int(ascendant_degree // 30)], "house": 1}
     chart["Midheaven"] = {"position": asc_mc[1], "sign": ZODIAC_SIGNS[int(asc_mc[1] // 30)], "house": 10}
 
@@ -209,6 +180,11 @@ def birth_chart():
 
     chart = get_birth_chart(year, month, day, hour, minute, city, tz_offset)
     return jsonify(chart)
+
+# ✅ Homepage Route
+@app.route("/")
+def home():
+    return render_template("index.html")
 
 # ✅ Run Flask App
 if __name__ == "__main__":
