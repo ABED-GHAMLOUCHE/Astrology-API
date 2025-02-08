@@ -6,7 +6,6 @@ import os
 from io import BytesIO
 from geopy.geocoders import Nominatim
 from flask_cors import CORS  # Import CORS
-from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from models import db, User, bcrypt
@@ -15,10 +14,7 @@ from config import Config  # Import config
 app = Flask(__name__)
 app.config.from_object(Config)
 
-db = SQLAlchemy(app)
-
 db.init_app(app)
-bcrypt.init_app(app)
 jwt = JWTManager(app)
 
 # 🛠️ Create Database Tables
