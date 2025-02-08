@@ -5,15 +5,19 @@ import swisseph as swe
 import os
 from io import BytesIO
 from geopy.geocoders import Nominatim
-from flask_cors import CORS  # Import CORS
+from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from models import db, User, bcrypt
-from config import Config  # Import config
-import traceback  #  Add this at the top
+from config import Config
+import traceback  # Logs full error details
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Ensure SECRET_KEY for JWT is set
+if not app.config.get("JWT_SECRET_KEY"):
+    app.config["JWT_SECRET_KEY"] = "super-secret-key"  # Change this to a secure key
 
 db.init_app(app)
 bcrypt.init_app(app)
@@ -26,60 +30,84 @@ with app.app_context():
 # ✅ User Registration Route
 @app.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        email = data.get("email")
+        password = data.get("password")
 
-    if not username or not email or not password:
-        return jsonify({"error": "Missing required fields"}), 400
+        if not username or not email or not password:
+            return jsonify({"error": "Missing required fields"}), 400
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({"error": "Email already registered"}), 409
+        if User.query.filter_by(email=email).first():
+            return jsonify({"error": "Email already registered"}), 409
 
-    new_user = User(username=username, email=email, password=password)
-    db.session.add(new_user)
-    db.session.commit()
+        new_user = User(username=username, email=email, password=password)
+        db.session.add(new_user)
+        db.session.commit()
 
-    return jsonify({"message": "User registered successfully"}), 201
+        return jsonify({"message": "User registered successfully"}), 201
+
+    except Exception as e:
+        print("🔥 ERROR:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Something went wrong!"}), 500
 
 # ✅ User Login Route
 @app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    email = data.get("email")
-    password = data.get("password")
+    try:
+        data = request.get_json()
+        email = data.get("email")
+        password = data.get("password")
 
-    user = User.query.filter_by(email=email).first()
-    if not user or not user.check_password(password):
-        return jsonify({"error": "Invalid credentials"}), 401
+        user = User.query.filter_by(email=email).first()
+        if not user or not user.check_password(password):
+            return jsonify({"error": "Invalid credentials"}), 401
 
-    access_token = create_access_token(identity=user.id)
-    return jsonify({"message": "Login successful", "access_token": access_token}), 200
+        access_token = create_access_token(identity=user.id)
+        return jsonify({"message": "Login successful", "access_token": access_token}), 200
 
-     except Exception as e:
+    except Exception as e:
         print("🔥 ERROR:", e)
-        traceback.print_exc()  # Logs full error details
+        traceback.print_exc()
         return jsonify({"error": "Something went wrong!"}), 500
 
 # ✅ Protected Route (Only for Authenticated Users)
 @app.route("/profile", methods=["GET"])
 @jwt_required()
 def profile():
-    user_id = get_jwt_identity()
-    user = User.query.get(user_id)
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
 
-    if not user:
-        return jsonify({"error": "User not found"}), 404
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
-    return jsonify({
-        "username": user.username,
-        "email": user.email,
-        "message": "Welcome to your profile"
-    }), 200
+        return jsonify({
+            "username": user.username,
+            "email": user.email,
+            "message": "Welcome to your profile"
+        }), 200
 
+    except Exception as e:
+        print("🔥 ERROR:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Something went wrong!"}), 500
+
+# ✅ Enable CORS for the entire app
+CORS(app, resources={r"/birth_chart": {"origins": "*"}})
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    return response
+
+# Run the Flask application
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=10000, debug=True)
 
 # ✅ Enable CORS for the entire app
 CORS(app, resources={r"/birth_chart": {"origins": "*"}})
