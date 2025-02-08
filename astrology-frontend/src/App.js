@@ -128,13 +128,17 @@ const App = () => {
       <div>
         <label>Select Date of Birth:</label>
         <DatePicker
-          selected={selectedDate}
-          onChange={(date) => setSelectedDate(date)}
-          dateFormat="yyyy-MM-dd"
-          maxDate={new Date()}
-          showYearDropdown
-          scrollableYearDropdown
-        />
+  selected={selectedDate}
+  onChange={(date) => setSelectedDate(date)}
+  dateFormat="yyyy-MM-dd"
+  maxDate={new Date()}
+  showYearDropdown
+  scrollableYearDropdown
+  yearDropdownItemNumber={100} // 🔹 Show last 100 years
+  minDate={new Date(new Date().getFullYear() - 100, 0, 1)} // 🔹 Restrict to last 100 years
+  placeholderText="YYYY-MM-DD"
+/>
+
       </div>
 
       <div>
