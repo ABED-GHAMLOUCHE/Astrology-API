@@ -1,6 +1,6 @@
 import os
 import traceback
-from flask import Flask, redirect, url_for, jsonify, render_template, request
+from flask import Flask, redirect, url_for, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_cors import CORS
@@ -38,6 +38,7 @@ class User(db.Model):
 # ✅ Google OAuth Setup
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = "https://astrology-api-au16.onrender.com/auth/google/callback"  # ✅ Correct Redirect URI
 
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
     raise ValueError("Missing Google OAuth Client ID or Secret. Set them as environment variables.")
@@ -46,7 +47,7 @@ google_bp = make_google_blueprint(
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
     scope=["openid", "email", "profile"],
-    redirect_url="/auth/google_callback"  # ✅ FIXED
+    redirect_url=GOOGLE_REDIRECT_URI  # ✅ FIXED
 )
 app.register_blueprint(google_bp, url_prefix="/auth")
 
@@ -57,7 +58,7 @@ jwt = JWTManager(app)
 # 🚀 AUTHENTICATION SYSTEM
 # ===========================
 
-@app.route("/auth/google_callback")
+@app.route("/auth/google/callback")
 def google_callback():
     if not google.authorized:
         return redirect(url_for("google.login"))
