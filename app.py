@@ -46,7 +46,7 @@ google_bp = make_google_blueprint(
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
     scope=["openid", "email", "profile"],
-    redirect_to="google_callback"
+    redirect_url="/auth/google_callback"  # ✅ FIXED
 )
 app.register_blueprint(google_bp, url_prefix="/auth")
 
@@ -57,15 +57,14 @@ jwt = JWTManager(app)
 # 🚀 AUTHENTICATION SYSTEM
 # ===========================
 
-# ✅ Google OAuth Callback Route
-@app.route("/google_callback")
+@app.route("/auth/google_callback")
 def google_callback():
     if not google.authorized:
         return redirect(url_for("google.login"))
 
     try:
         # ✅ Fetch user info from Google API
-        resp = google.get("/userinfo")
+        resp = google.get("https://www.googleapis.com/oauth2/v2/userinfo")  # ✅ FIXED
         if not resp.ok:
             return jsonify({"error": "Failed to fetch user info"}), 400
 
@@ -132,6 +131,12 @@ PLANETS = {
     "♇ Pluto": swe.PLUTO, "☊ North Node": swe.MEAN_NODE
 }
 
+ZODIAC_SIGNS = [
+    "♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo",
+    "♍ Virgo", "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn",
+    "♒ Aquarius", "♓ Pisces"
+]
+
 # ✅ Get Coordinates of a City
 def get_coordinates(city):
     geolocator = Nominatim(user_agent="astrology_api")
@@ -155,14 +160,20 @@ def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
         house_position = next((i+1 for i, cusp in enumerate(houses) if cusp > planet_longitude), 12)
         chart[planet] = {
             "position": planet_longitude,
-            "sign": ["♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo",
-                     "♍ Virgo", "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn",
-                     "♒ Aquarius", "♓ Pisces"][int(planet_longitude // 30)],
+            "sign": ZODIAC_SIGNS[int(planet_longitude // 30)],
             "house": house_position
         }
 
-    chart["Ascendant"] = {"position": ascendant_degree, "sign": chart[PLANETS.keys()[0]]["sign"], "house": 1}
-    chart["Midheaven"] = {"position": asc_mc[1], "sign": chart[PLANETS.keys()[0]]["sign"], "house": 10}
+    chart["Ascendant"] = {
+        "position": ascendant_degree,
+        "sign": ZODIAC_SIGNS[int(ascendant_degree // 30)],  # ✅ FIXED
+        "house": 1
+    }
+    chart["Midheaven"] = {
+        "position": asc_mc[1],
+        "sign": ZODIAC_SIGNS[int(asc_mc[1] // 30)],  # ✅ FIXED
+        "house": 10
+    }
 
     return chart
 
@@ -183,7 +194,7 @@ def birth_chart():
 # ✅ Homepage Route
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return "Welcome to the Astrology API! Go to /auth/google to log in."
 
 # ✅ Run Flask App
 if __name__ == "__main__":
