@@ -1,3 +1,5 @@
+import os
+import traceback
 from flask import Flask, redirect, url_for, jsonify, render_template, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -5,10 +7,6 @@ from flask_cors import CORS
 from flask_dance.contrib.google import make_google_blueprint, google
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 import swisseph as swe
-import traceback
-from io import BytesIO
-import numpy as np
-import matplotlib.pyplot as plt
 from geopy.geocoders import Nominatim
 from config import Config
 
@@ -38,9 +36,15 @@ class User(db.Model):
     email = db.Column(db.String(100), unique=True, nullable=False)
 
 # ✅ Google OAuth Setup
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+
+if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+    raise ValueError("Missing Google OAuth Client ID or Secret. Set them as environment variables.")
+
 google_bp = make_google_blueprint(
-    client_id=app.config["GOOGLE_OAUTH_CLIENT_ID"],
-    client_secret=app.config["GOOGLE_OAUTH_CLIENT_SECRET"],
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
     scope=["profile", "email"],
     redirect_to="google_callback"
 )
@@ -59,30 +63,35 @@ def google_callback():
     if not google.authorized:
         return redirect(url_for("google.login"))
 
-    # ✅ Get user details from Google API
-    resp = google.get("/oauth2/v1/userinfo")
-    if not resp.ok:
-        return jsonify({"error": "Failed to fetch user info"}), 400
+    try:
+        resp = google.get("/oauth2/v1/userinfo")
+        if not resp.ok:
+            return jsonify({"error": "Failed to fetch user info"}), 400
 
-    user_info = resp.json()
-    google_id = user_info["id"]
-    email = user_info["email"]
-    name = user_info.get("name", "")
+        user_info = resp.json()
+        google_id = user_info["id"]
+        email = user_info["email"]
+        name = user_info.get("name", "")
 
-    # ✅ Check if user exists in DB
-    user = User.query.filter_by(google_id=google_id).first()
-    if not user:
-        user = User(google_id=google_id, email=email, username=name)
-        db.session.add(user)
-        db.session.commit()
+        # ✅ Check if user exists in DB
+        user = User.query.filter_by(google_id=google_id).first()
+        if not user:
+            user = User(google_id=google_id, email=email, username=name)
+            db.session.add(user)
+            db.session.commit()
 
-    access_token = create_access_token(identity=str(user.id))
-    return jsonify({
-        "message": "Login successful!",
-        "username": user.username,
-        "email": user.email,
-        "access_token": access_token
-    }), 200
+        access_token = create_access_token(identity=str(user.id))
+        return jsonify({
+            "message": "Login successful!",
+            "username": user.username,
+            "email": user.email,
+            "access_token": access_token
+        }), 200
+
+    except Exception as e:
+        print("🔥 ERROR:", e)
+        traceback.print_exc()
+        return jsonify({"error": "Something went wrong!"}), 500
 
 # ✅ User Profile Route (Protected)
 @app.route("/profile", methods=["GET"])
@@ -127,13 +136,6 @@ ZODIAC_SIGNS = [
     "♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo", "♍ Virgo",
     "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn", "♒ Aquarius", "♓ Pisces"
 ]
-
-# ✅ Major Aspects
-ASPECTS = {
-    "Conjunction": 0, "Opposition": 180, "Trine": 120,
-    "Square": 90, "Sextile": 60
-}
-ORB_ALLOWANCE = {"Conjunction": 8, "Opposition": 6, "Trine": 6, "Square": 6, "Sextile": 4}
 
 # ✅ Get Coordinates of a City
 def get_coordinates(city):
