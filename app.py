@@ -45,6 +45,9 @@ if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
 google_bp = make_google_blueprint(
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
+    base_url="https://www.googleapis.com/oauth2/v2/",
+    authorization_url="https://accounts.google.com/o/oauth2/auth",
+    token_url="https://oauth2.googleapis.com/token",
     scope=["profile", "email"],
     redirect_to="google_callback"
 )
