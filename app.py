@@ -45,13 +45,10 @@ if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
 google_bp = make_google_blueprint(
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
-    base_url="https://www.googleapis.com/oauth2/v2/",
-    authorization_url="https://accounts.google.com/o/oauth2/auth",
-    token_url="https://oauth2.googleapis.com/token",
-    scope=["profile", "email"],
+    scope=["openid", "email", "profile"],
     redirect_to="google_callback"
 )
-app.register_blueprint(google_bp, url_prefix="/login")
+app.register_blueprint(google_bp, url_prefix="/auth")
 
 # ✅ JWT Setup
 jwt = JWTManager(app)
@@ -67,7 +64,8 @@ def google_callback():
         return redirect(url_for("google.login"))
 
     try:
-        resp = google.get("/oauth2/v1/userinfo")
+        # ✅ Fetch user info from Google API
+        resp = google.get("/userinfo")
         if not resp.ok:
             return jsonify({"error": "Failed to fetch user info"}), 400
 
@@ -134,12 +132,6 @@ PLANETS = {
     "♇ Pluto": swe.PLUTO, "☊ North Node": swe.MEAN_NODE
 }
 
-# ✅ Zodiac Signs
-ZODIAC_SIGNS = [
-    "♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo", "♍ Virgo",
-    "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn", "♒ Aquarius", "♓ Pisces"
-]
-
 # ✅ Get Coordinates of a City
 def get_coordinates(city):
     geolocator = Nominatim(user_agent="astrology_api")
@@ -163,12 +155,14 @@ def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
         house_position = next((i+1 for i, cusp in enumerate(houses) if cusp > planet_longitude), 12)
         chart[planet] = {
             "position": planet_longitude,
-            "sign": ZODIAC_SIGNS[int(planet_longitude // 30)],
+            "sign": ["♈ Aries", "♉ Taurus", "♊ Gemini", "♋ Cancer", "♌ Leo",
+                     "♍ Virgo", "♎ Libra", "♏ Scorpio", "♐ Sagittarius", "♑ Capricorn",
+                     "♒ Aquarius", "♓ Pisces"][int(planet_longitude // 30)],
             "house": house_position
         }
 
-    chart["Ascendant"] = {"position": ascendant_degree, "sign": ZODIAC_SIGNS[int(ascendant_degree // 30)], "house": 1}
-    chart["Midheaven"] = {"position": asc_mc[1], "sign": ZODIAC_SIGNS[int(asc_mc[1] // 30)], "house": 10}
+    chart["Ascendant"] = {"position": ascendant_degree, "sign": chart[PLANETS.keys()[0]]["sign"], "house": 1}
+    chart["Midheaven"] = {"position": asc_mc[1], "sign": chart[PLANETS.keys()[0]]["sign"], "house": 10}
 
     return chart
 
