@@ -31,14 +31,14 @@ def add_cors_headers(response):
 # ✅ Define User Model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    google_id = db.Column(db.String(50), unique=True, nullable=True)  # For Google Login
+    google_id = db.Column(db.String(50), unique=True, nullable=True)
     username = db.Column(db.String(100), nullable=True)
     email = db.Column(db.String(100), unique=True, nullable=False)
 
 # ✅ Google OAuth Setup
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = "https://astrology-api-au16.onrender.com/auth/google/callback"  # ✅ Correct Redirect URI
+GOOGLE_REDIRECT_URI = "https://astrology-api-au16.onrender.com/auth/google/callback"
 
 if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
     raise ValueError("Missing Google OAuth Client ID or Secret. Set them as environment variables.")
@@ -47,9 +47,9 @@ google_bp = make_google_blueprint(
     client_id=GOOGLE_CLIENT_ID,
     client_secret=GOOGLE_CLIENT_SECRET,
     scope=["openid", "email", "profile"],
-    redirect_url=GOOGLE_REDIRECT_URI  # ✅ FIXED
+    redirect_to="google_callback"
 )
-app.register_blueprint(google_bp, url_prefix="/auth")
+app.register_blueprint(google_bp, url_prefix="/auth/google")
 
 # ✅ JWT Setup
 jwt = JWTManager(app)
@@ -65,7 +65,7 @@ def google_callback():
 
     try:
         # ✅ Fetch user info from Google API
-        resp = google.get("https://www.googleapis.com/oauth2/v2/userinfo")  # ✅ FIXED
+        resp = google.get("https://www.googleapis.com/oauth2/v2/userinfo")
         if not resp.ok:
             return jsonify({"error": "Failed to fetch user info"}), 400
 
@@ -75,13 +75,13 @@ def google_callback():
         name = user_info.get("name", "")
 
         # ✅ Check if user exists in DB
-        user = User.query.filter_by(google_id=google_id).first()
+        user = User.query.filter_by(email=email).first()
         if not user:
             user = User(google_id=google_id, email=email, username=name)
             db.session.add(user)
             db.session.commit()
 
-        access_token = create_access_token(identity=str(user.id))
+        access_token = create_access_token(identity=user.id)
         return jsonify({
             "message": "Login successful!",
             "username": user.username,
@@ -99,7 +99,7 @@ def google_callback():
 @jwt_required()
 def profile():
     try:
-        user_id = int(get_jwt_identity())  # Convert from string to integer
+        user_id = int(get_jwt_identity())  
         user = User.query.get(user_id)
 
         if not user:
@@ -167,12 +167,12 @@ def get_birth_chart(year, month, day, hour, minute, city, tz_offset):
 
     chart["Ascendant"] = {
         "position": ascendant_degree,
-        "sign": ZODIAC_SIGNS[int(ascendant_degree // 30)],  # ✅ FIXED
+        "sign": ZODIAC_SIGNS[int(ascendant_degree // 30)],
         "house": 1
     }
     chart["Midheaven"] = {
         "position": asc_mc[1],
-        "sign": ZODIAC_SIGNS[int(asc_mc[1] // 30)],  # ✅ FIXED
+        "sign": ZODIAC_SIGNS[int(asc_mc[1] // 30)],
         "house": 10
     }
 
